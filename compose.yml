@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    volumes:
+      - data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: thanhnt
+      POSTGRES_PASSWORD: thanhnt
+      POSTGRES_DB: final_project
+    networks:
+      - app-network
+
+  flaskapp:
+    image: pyapp:v1
+    command: /bin/sh -c "flask --app app.py --debug run --host=0.0.0.0 --port=5000 & sleep 10 && celery -A tasks.celery_app worker --loglevel=info"
+    volumes:
+      - .:/usr/src/app
+      - ./images:/usr/src/app/images
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql+psycopg2://thanhnt:thanhnt@postgres:5432/final_project
+
+    networks:
+      - app-network
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+  # celery:
+  #   image: pyapp:v1
+  #   command: /bin/sh -c "flask --app app.py --debug run --host=0.0.0.0 --port=5000 & sleep 10 && celery -A app.celery_app worker --loglevel=info"
+  #   volumes:
+  #     - .:/usr/src/app
+  #   environment:
+  #     - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672/
+  #     - CELERY_RESULT_BACKEND=rpc://
+  #   depends_on:
+  #     - flaskapp
+  #     - rabbitmq
+  #   networks:
+  #     - app-network
+
+
+volumes:
+  data:
+
+networks:
+  app-network:
+    driver: bridge
+
+  
